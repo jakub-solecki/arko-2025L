@@ -8,46 +8,23 @@
 	.eqv	FILE_READ, 63
 	.eqv	FILE_GOTO, 62
 	.eqv	READ_ONLY, 0
-	.eqv	FULL_HEADER_SIZE, 54
-	.eqv	CUTOUT_WIDTH, 64
-	.eqv	CUTOUT_HEIGHT, 24
+	.eqv	HEADER_SIZE, 54
+	.eqv	MAX_WIDTH, 64
+	.eqv	MAX_HEIGHT, 24
 	.eqv	FILEPATH_BUFFSIZE, 100
 	.eqv	WHITE_CHAR, 46 # '.'
 	.eqv 	BLACK_CHAR, 35 # '#'
 	
-	# for the purposes of this project I plan to use images with a bpp (bits per pixel) of 4
-	# and a standard 40-byte BITMAPINFOHEADER DIB header
-	#
-	# register usage:
-	# (the tx registers are only added here for my own convenience, and their actual usage may vary)
-	# t0 - miscellaneous pointer
-	# t2 - miscellaneous offset
-	# t3 - stores pixel data after import from memory
-	# t4 - loop counter #1 (width)
-	# t5 - loop counter #2 (height)
-	# s11 - const -1 for checking if file operations succeeded
-	# s10 - image width
-	# s9 - image height
-	# s8 - const 64 for checks in regard to slice width
-	# s7 - const 24 for checks in regard to slice height
-	# s6 - stride size of given bitmap
-	# s5 - actual width of output, equal to min(image_width, 64)
-	# s4 - actual height of output, equal to min(image_height, 24)
-	# s3 - offset to pixel array
-	# s2 - actual width of output in bytes instead of pixels
-	# s1 - stores file handle
-	#
-	# all of them are necessary although you could probably replace most sX registers with one for header pointer operations and baked-in header offsets.
-	# I opted against that because that's a lot of additional operations and a ton of memory accesses, and if they didn't want me to use 15 registers they shouldn't have given me 15 registers
-	
+	# program that prints a maximum of 64 x 24 top left pixels of a BMP file in ascii
+
 	.data
 msg:	.asciz	"Enter path to BMP file: "
 img:	.space	FILEPATH_BUFFSIZE
 	.align	2
 spacer:	.space	1		# only here to force alignment of head to middle halfword
 	.align	1
-head:	.space	FULL_HEADER_SIZE	# stores BMP & DIB headers
-strd:	.space	CUTOUT_WIDTH
+head:	.space	HEADER_SIZE	# stores BMP & DIB headers
+strd:	.space	MAX_WIDTH
 
 	.text
 main:
@@ -73,15 +50,22 @@ rm_endl:
 
 rm_endl_loop:
 	#loops through path until it finds '\n'
-	lb	t2, (t0)
+	lb	t3, (t0)
 	addi	t0, t0, 1
-	bne	t1,t2, rm_endl_loop
+	bne	t1,t3, rm_endl_loop
 	
-	# charaster == '\n'
+	# =============
+	# print input message
+	li	a7, SYS_PRINT_STR
+	la	a0, msg
+	ecall
+	# ==============
+	
+	# character == '\n'
 	addi	t0,t0, -1
 	sb	zero, (t0)
 	
-	# prints additional endline for style points
+	# new line to separate input and output
 	li	a7, SYS_PRINT_CHAR
 	li	a0, '\n'
 	ecall
@@ -103,7 +87,7 @@ read_header:
 	
 	li	a7, FILE_READ
 	la	a1, head
-	li	a2, FULL_HEADER_SIZE
+	li	a2, HEADER_SIZE
 	ecall
 	
 	# reads image width, height, pixel array offset from stored header
@@ -112,16 +96,68 @@ read_header:
 	addi	t0, t0, 10	# offset from head to pixel array offset
 	lw	s3, (t0)	# s3 = pixel offset
 	addi	t0, t0, 8	# offset from pixel array offset to bitmap width
-	lw	s10, (t0)	# s
+	lw	s11, (t0)	# s11 = image width (in pixels)
 	addi	t0, t0, 4	# offset from bitmap width to bitmap height
-	lw	s9, (t0)
+	lw	s10, (t0)	# s10 = image height (in pixels)
+
 
 	# calculates stride size;  stride = (image_width_in_pixels * bits_per_pixel + 31) / 32 * 4
+	# stride - size of single line of pixels (width_in_bytes + )
 	# bits_per_pixel = 1
-	mv	s6, s10
-	addi	s6, s6, 31
-	srli	s6, s6, 5	# equivalent to //32
-	slli	s6, s6, 2	# equivalent to *4
+	mv	s7, s11	# s7 = image_width_in_pixels (there is no need to multiply * 1 )
+	addi	s7, s7, 31
+	srli	s7, s7, 5	# s7 = s7 /32
+	slli	s7, s7, 2	# s7 = s7 * 4
+	
+get_to_top_left_pixel:
+	li	s9, MAX_WIDTH
+	li	s8, MAX_HEIGHT
+	
+	# t2 = adress of current line start
+	mv 	t2, s10		# t0 = img_height 
+	mul	t2, t2, s7 	# t0 *= stride_size
+	add	t2, t2, s3	# t0 += pixel_offset
+	sub	t2, t2, s7 	# t0 -= stride_size
+	
+	
+	# moves file handle to t2
+	li	a7, FILE_GOTO
+	mv	a1, t2
+	li	a2, 0
+	mv	a0, s1
+	ecall
+
+set_max_width:
+	# sets t6 to min(width_in_pixels, MAX_WIDTH)
+	mv	t6,  s11 # width in pixels
+	bleu	t6, s9, print_line
+	mv	t6, s9
+	
+	
+print_line:
+	mv 	t5, t6  
+	srli	t5, t5, 3 # changes width in pixels to width in bytes
+	addi	t5,t5,1
+	# ex. 17 pixels -> 3 bytes, 15 pixels -> 2 bytes
+	
+	
+	# imports stride into memory
+	# strd has the content of given line
+	la	a1, strd
+	mv	a2, t5
+	li	a7, FILE_READ
+	mv	a0, s1
+	ecall
+print_setup:
+	# set t4 as msb
+	li	t4, 128
+	
+
+print_loop:
+	
+	
+next_line:
+	
 fin:			
 	# close file and exit without error code
 	li	a7, FILE_CLOSE
