@@ -109,9 +109,18 @@ read_header:
 	srli	s7, s7, 5	# s7 = s7 /32
 	slli	s7, s7, 2	# s7 = s7 * 4
 	
+	
+	# number of lines to print
+	# s6 = lines to print
+	li	s6, MAX_HEIGHT
+	ble	s6, s10, get_to_top_left_pixel
+	mv	s6, s10
+	
 get_to_top_left_pixel:
 	li	s9, MAX_WIDTH
 	li	s8, MAX_HEIGHT
+	
+	
 	
 	# t2 = adress of current line start
 	mv 	t2, s10		# t0 = img_height 
@@ -126,6 +135,9 @@ get_to_top_left_pixel:
 	li	a2, 0
 	mv	a0, s1
 	ecall
+	
+	
+	
 
 set_max_width:
 	# sets t6 to min(width_in_pixels, MAX_WIDTH)
@@ -148,15 +160,54 @@ print_line:
 	li	a7, FILE_READ
 	mv	a0, s1
 	ecall
+	
+	
+	la	s0, strd
+	addi	s0, s0, -1
 print_setup:
 	# set t4 as msb
 	li	t4, 128
-	
+	addi	s0, s0, 1
+	lbu	s2, (s0) 
 
 print_loop:
+	beqz	t6, next_line
+	beqz	t4, print_setup # gets to next byte
+	addi	t6,t6,-1
+	and	s4, s2, t4
 	
+	beqz	s4, print_black 
+
+	
+	
+	
+print_white:
+	li	a0, WHITE_CHAR
+	b	print_chr
+print_black:
+	li	a0, BLACK_CHAR
+print_chr:
+	li	a7, SYS_PRINT_CHAR
+	ecall
+	srli	t4,t4,1
+	b	print_loop
 	
 next_line:
+	addi	s6, s6, -1
+	li	a7, SYS_PRINT_CHAR
+	li	a0, '\n'
+	ecall
+	
+	# move t2 to lower line
+	sub	t2, t2, s7 # fd = fd - stride
+	mv	a0, s1
+	li	a7, FILE_GOTO
+	mv	a1, t2
+	li	a2, 0
+	ecall
+	
+	
+	bgtz	s6, set_max_width
 	
 fin:			
 	# close file and exit without error code
