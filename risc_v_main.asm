@@ -15,15 +15,16 @@
 	.eqv	WHITE_CHAR, 46 # '.'
 	.eqv 	BLACK_CHAR, 35 # '#'
 	
-	# program that prints a maximum of 64 x 24 top left pixels of a BMP file in ascii
+	# program that prints a maximum of 64 x 24 top left pixels of a 1 bpp BMP file in ascii
 
 	.data
-msg:	.asciz	"Enter path to BMP file: "
+msg:	.asciz	"Enter path to BMPaa file: "
 img:	.space	FILEPATH_BUFFSIZE
-	.align	2
+	.align 	2
 spacer:	.space	1		# only here to force alignment of head to middle halfword
-	.align	1
-head:	.space	HEADER_SIZE	# stores BMP & DIB headers
+	#.align	1
+	.align 	1
+head:	.space	HEADER_SIZE	
 strd:	.space	MAX_WIDTH
 
 	.text
@@ -53,13 +54,7 @@ rm_endl_loop:
 	lb	t3, (t0)
 	addi	t0, t0, 1
 	bne	t1,t3, rm_endl_loop
-	
-	# =============
-	# print input message
-	li	a7, SYS_PRINT_STR
-	la	a0, msg
-	ecall
-	# ==============
+
 	
 	# character == '\n'
 	addi	t0,t0, -1
