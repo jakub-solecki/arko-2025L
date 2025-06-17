@@ -13,6 +13,8 @@ int main(int argc, char *argv[]) {
     }
 
     const char *input_file = argv[1];
+
+    
     int level = atoi(argv[2]);
 
     if (level < 0 || level > 64) {

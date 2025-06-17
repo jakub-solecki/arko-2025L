@@ -1,156 +1,154 @@
-    section .text
-    global desat
+section .text
+global desat
 
-
+; Function: desat
+; Parameters:
+;   [ebp+8]  - pointer to BMP file
+;   [ebp+12] - desaturation level (0-64)
 desat:
+    ; Prologue
     push    ebp
     mov     ebp, esp
-    sub     esp, 16
-
-
+    sub     esp, 16                 ; Allocate space for local variables
+    
+    ; Save registers
     push    esi
     push    ebx
     push    edi
-    ; push    edx
-    ; push    eax
-    ; push    ecx
 
+    ; Set up pointers
+    mov     esi, [ebp+8]            ; ESI = pointer to BMP file
+    mov     edi, esi                ; EDI = copy of pointer
 
-    mov     esi, [ebp+8]        ;pointer to file
-    mov     edi, esi
-    
+    ; Validate desaturation level
+    mov     eax, [ebp + 12]         ; EAX = level
+    cmp     eax, 64                 ; Check if level > 64
+    ja      fin                    
+    cmp     eax, 0                  ; Check if level <= 0
+    jle     fin
 
-check_level:
-    mov     eax, [ebp + 12]     ; level (stored in al)
-    cmp    eax, 64 ; level [0; 64]
-    ja     fin     
-
-    cmp    eax, 0 ; if level <= 0 jump to fin, no need to do anything
-    jle    fin
-
-
-read_header:
-    mov     dl, [esi + 0x1C]    ;bpp
-    cmp     dl, 24              ;only bpp24 is supported
+    ; Read BMP header
+    mov     dl, [esi + 0x1C]        ; DL = bits per pixel
+    cmp     dl, 24                  ; Only support 24bpp
     jne     fin
 
-
-    ; stride = (image_width_in_pixels * bytes_per_pixel + 3) & ~3
-    mov     ebx, [esi + 0x12]   ; Width
-    lea     ebx, [ebx + ebx*2]  ;width in bytes (width * 3)
-
+    ; Calculate image dimensions
+    mov     ebx, [esi + 0x12]       ; EBX = width in pixels
+    mov     [ebp-8], ebx            ; Store width
+    lea     ebx, [ebx + ebx*2]      ; EBX = width in bytes (width * 3)
+    
+    ; Calculate stride (width + padding)
     mov     edx, ebx
     add     edx, 3
+    and     edx, -4                 ; EDX = stride (aligned to 4 bytes)
     
-    and     edx, -4             ; -4 = ~3   ; stride (width + padding)
+    sub     edx, ebx                ; EDX = padding bytes
+    mov     [ebp-4], edx            ; Store padding
+    mov     [ebp-12], ebx           ; Store width in bytes
+    
+    mov     ebx, [esi + 0x16]       ; EBX = height
+    mov     [ebp-16], ebx           ; Store height
 
+    ; Set up pixel pointer
+    mov     ebx, [edi + 0xA]        ; EBX = pixel offset
+    add     esi, ebx                ; ESI points to first pixel
 
-    sub     edx, ebx            ; padding (bytes)
+    ; Initialize row counter
+    mov     edi, [ebp-16]           ; EDI = height (rows remaining)
 
-    mov     [ebp-4], edx        ; padding (bytes)
-    mov     [ebp-8], ebx        ; width (bytes)
-    mov     ebx, [esi + 0x16]   ; height
-    mov     [ebp-12], ebx       ; current height
+row_loop:
+    ; Initialize column counter
+    mov     ecx, [ebp-8]            ; ECX = width (pixels remaining)
 
-get_to_pixel:
-    mov     ebx, [edi + 0xA] ; ebx = pixel offset
-    add     esi, ebx        ; esi points to first pixel
-loop:
-; new_color = ((64 - level) * original_color + level * gray) / 64
-; gray = (R + G + B) / 3
-    ; mov     edx, [ebp-8]
-    xor     ebx, ebx    ; ebx = 0 ; will hold gray
-br1:
-    movzx     ecx, byte [esi+0]
-    add     ebx, ecx
-    movzx     ecx, byte [esi+1]
-    add     ebx, ecx
-    movzx     ebx, byte [esi +2]  
-    add     ebx, ecx            ; ebx = R+ G + B
+pixel_loop:
+    ; Calculate gray value (R + G + B) / 3
+    xor     ebx, ebx                ; EBX will hold sum
+    
+    ; Sum RGB components
+    movzx   eax, byte [esi+0]       ; B
+    add     ebx, eax
+    movzx   eax, byte [esi+1]       ; G
+    add     ebx, eax
+    movzx   eax, byte [esi+2]       ; R
+    add     ebx, eax                ; EBX = R + G + B
 
-    mov     ecx, ebx
+    ; Divide by 3 using shift operations
+    mov     eax, ebx                ; EAX = sum
+    shr     eax, 2                  ; EAX = sum/4
+    add     ebx, eax                ; EBX = sum + sum/4
+    shr     ebx, 2                  ; EBX = (sum + sum/4)/4 ≈ sum/3
 
-    ; xor     ebx, ebx
+    ; Process blue channel
+    mov     eax, [ebp + 12]         ; EAX = level
+    movzx   edx, byte [esi]         ; EDX = original blue value
+    mov     ah, 64
+    sub     ah, al                  ; AH = 64 - level
+    mov     al, ah
+    mul     dl                      ; AX = (64-level)*original_color
+    push    eax
+    
+    mov     eax, [ebp + 12]         ; EAX = level
+    mul     ebx                     ; EAX = level*gray
+    
+    pop     edx
+    add     eax, edx                ; EAX = (64-level)*original + level*gray
+    shr     eax, 6                  ; Divide by 64
+    mov     [esi], al               ; Store new blue value
 
-div_loop:
-    shr     ecx, 2
-    add     ebx, ecx
-    test    ecx, ecx
-    jnz     div_loop
-    shr     ebx, 2 ; ebx = gray
+    ; Process green channel
+    mov     eax, [ebp + 12]         ; EAX = level
+    movzx   edx, byte [esi+1]       ; EDX = original green value
+    mov     ah, 64
+    sub     ah, al                  ; AH = 64 - level
+    mov     al, ah
+    mul     dl                      ; AX = (64-level)*original_color
+    push    eax
+    
+    mov     eax, [ebp + 12]         ; EAX = level
+    mul     ebx                     ; EAX = level*gray
+    
+    pop     edx
+    add     eax, edx                ; EAX = (64-level)*original + level*gray
+    shr     eax, 6                  ; Divide by 64
+    mov     [esi+1], al             ; Store new green value
 
-blue:
-    ;new_color = ((64 - level) * original_color + level * gray) / 64
-    mov     eax, [ebp + 12]
-    movzx     ecx, byte [esi] ; ecx =original_color
-    mov       ah, 64
-    sub       ah, al    ; ah = 64 - level
-    mov       al, ah
-    mul       cl    ; al = (64-level) * original_color
-    ; mov     ecx, eax ; ecx =  (64-level) * original_color
-    push    eax  ; (64-level) * original_color
-    mov     eax, [ebp + 12] ; al = level
-    mul     ebx             ; eax = level * gray
+    ; Process red channel
+    mov     eax, [ebp + 12]         ; EAX = level
+    movzx   edx, byte [esi+2]       ; EDX = original red value
+    mov     ah, 64
+    sub     ah, al                  ; AH = 64 - level
+    mov     al, ah
+    mul     dl                      ; AX = (64-level)*original_color
+    push    eax
+    
+    mov     eax, [ebp + 12]         ; EAX = level
+    mul     ebx                     ; EAX = level*gray
+    
+    pop     edx
+    add     eax, edx                ; EAX = (64-level)*original + level*gray
+    shr     eax, 6                  ; Divide by 64
+    mov     [esi+2], al             ; Store new red value
 
-    pop     ecx
-    add     eax, ecx ; ((64 - level) * original_color + level * gray)
-    shr     eax, 6 ; ((64 - level) * original_color + level * gray) / 64
-    mov     [esi], al
-    add     esi, 1
+    ; Move to next pixel
+    add     esi, 3                  ; Next pixel (3 bytes per pixel)
+    dec     ecx                     ; Decrement pixel counter
+    jnz     pixel_loop              ; Continue row if more pixels
 
-    ; sub     edx, 1
-green:
-        mov     eax, [ebp + 12]
-    movzx     ecx, byte [esi] ; ecx =original_color
-    mov       ah, 64
-    sub       ah, al    ; ah = 64 - level
-    mov       al, ah
-    mul       cl    ; al = (64-level) * original_color
-    ; mov     ecx, eax ; ecx =  (64-level) * original_color
-    push    eax  ; (64-level) * original_color
-    mov     eax, [ebp + 12] ; al = level
-    mul     ebx             ; eax = level * gray
+    ; Handle padding at end of row
+    mov     edx, [ebp-4]            ; EDX = padding bytes
+    add     esi, edx                ; Skip padding
 
-    pop     ecx
-    add     eax, ecx ; ((64 - level) * original_color + level * gray)
-    shr     eax, 6 ; ((64 - level) * original_color + level * gray) / 64
-    mov     [esi], al
-    add     esi, 1
-
-red:
-        mov     eax, [ebp + 12]
-    movzx     ecx, byte [esi] ; ecx =original_color
-    mov       ah, 64
-    sub       ah, al    ; ah = 64 - level
-    mov       al, ah
-    mul       cl    ; al = (64-level) * original_color
-    ; mov     ecx, eax ; ecx =  (64-level) * original_color
-    push    eax  ; (64-level) * original_color
-    mov     eax, [ebp + 12] ; al = level
-    mul     ebx             ; eax = level * gray
-
-    pop     ecx
-    add     eax, ecx ; ((64 - level) * original_color + level * gray)
-    shr     eax, 6 ; ((64 - level) * original_color + level * gray) / 64
-    mov     [esi], al
-    add     esi, 1 
-
-br2:
-;     mov     ecx, ebx
-;     shr     ebx, 1      ; ebx = ebx/2
-; br3:
-;     add     ebx, ecx
-;     shr     ebx, 2     ; ebx = ebx / 3
-
-brrrr:
+    ; Move to next row
+    dec     edi                     ; Decrement row counter
+    jnz     row_loop                ; Continue if more rows
 
 fin:
-    ; pop     ecx
-    ; pop     eax
-    ; pop     edx
+    ; Restore registers
     pop     edi
     pop     ebx
     pop     esi
+    
+    ; Epilogue
     mov     esp, ebp
     pop     ebp
     ret
