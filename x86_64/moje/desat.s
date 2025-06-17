@@ -5,7 +5,7 @@
 desat:
     push    ebp
     mov     ebp, esp
-    sub     esp, 12
+    sub     esp, 16
 
 
     push    esi
@@ -48,14 +48,31 @@ read_header:
 
     mov     [ebp-4], edx        ; padding (bytes)
     mov     [ebp-8], ebx        ; width (bytes)
-    
-    ; push    edx                 ; padding
+    mov     ebx, [esi + 0x16]   ; height
+    mov     [ebp-12], ebx       ; current height
 
+get_to_pixel:
+    mov     ebx, [edi + 0xA] ; ebx = pixel offset
+    add     esi, ebx        ; esi points to first pixel
 loop:
-
-
 ; new_color = ((64 - level) * original_color + level * gray) / 64
 ; gray = (R + G + B) / 3
+    xor     ebx, ebx    ; ebx = 0 ; will hold gray
+br1:
+    movzx     ecx, byte [esi+0]
+    add     ebx, ecx
+    movzx     ecx, byte [esi+1]
+    add     ebx, ecx
+    movzx     ebx, byte [esi +2]  
+    add     ebx, ecx            ; ebx = R+ G + B
+    
+    mov     ecx, ebx
+    shr     ebx, 1      ; ebx = ebx/2
+    add     ebx, ecx
+    shr     ebx, 1      ; ebx = ebx / 3
+
+brrrr:
+
 fin:
     ; pop     ecx
     ; pop     eax
