@@ -58,6 +58,7 @@ get_to_pixel:
 loop:
 ; new_color = ((64 - level) * original_color + level * gray) / 64
 ; gray = (R + G + B) / 3
+    ; mov     edx, [ebp-8]
     xor     ebx, ebx    ; ebx = 0 ; will hold gray
 br1:
     movzx     ecx, byte [esi+0]
@@ -81,7 +82,7 @@ div_loop:
 blue:
     ;new_color = ((64 - level) * original_color + level * gray) / 64
     mov     eax, [ebp + 12]
-    movzx     ecx, byte [esi+0] ; ecx =original_color
+    movzx     ecx, byte [esi] ; ecx =original_color
     mov       ah, 64
     sub       ah, al    ; ah = 64 - level
     mov       al, ah
@@ -94,12 +95,45 @@ blue:
     pop     ecx
     add     eax, ecx ; ((64 - level) * original_color + level * gray)
     shr     eax, 6 ; ((64 - level) * original_color + level * gray) / 64
+    mov     [esi], al
+    add     esi, 1
+
+    ; sub     edx, 1
 green:
-    mov     eax, [ebp + 12]
-    movzx     ecx, byte [esi+1]
+        mov     eax, [ebp + 12]
+    movzx     ecx, byte [esi] ; ecx =original_color
+    mov       ah, 64
+    sub       ah, al    ; ah = 64 - level
+    mov       al, ah
+    mul       cl    ; al = (64-level) * original_color
+    ; mov     ecx, eax ; ecx =  (64-level) * original_color
+    push    eax  ; (64-level) * original_color
+    mov     eax, [ebp + 12] ; al = level
+    mul     ebx             ; eax = level * gray
+
+    pop     ecx
+    add     eax, ecx ; ((64 - level) * original_color + level * gray)
+    shr     eax, 6 ; ((64 - level) * original_color + level * gray) / 64
+    mov     [esi], al
+    add     esi, 1
 
 red:
-    movzx     ebx, byte [esi +2]  
+        mov     eax, [ebp + 12]
+    movzx     ecx, byte [esi] ; ecx =original_color
+    mov       ah, 64
+    sub       ah, al    ; ah = 64 - level
+    mov       al, ah
+    mul       cl    ; al = (64-level) * original_color
+    ; mov     ecx, eax ; ecx =  (64-level) * original_color
+    push    eax  ; (64-level) * original_color
+    mov     eax, [ebp + 12] ; al = level
+    mul     ebx             ; eax = level * gray
+
+    pop     ecx
+    add     eax, ecx ; ((64 - level) * original_color + level * gray)
+    shr     eax, 6 ; ((64 - level) * original_color + level * gray) / 64
+    mov     [esi], al
+    add     esi, 1 
 
 br2:
 ;     mov     ecx, ebx
