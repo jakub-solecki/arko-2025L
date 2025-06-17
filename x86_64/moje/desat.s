@@ -18,9 +18,10 @@ desat:
 
     mov     esi, [ebp+8]        ;pointer to file
     mov     edi, esi
-    mov     eax, [ebp + 12]     ; level
+    
 
 check_level:
+    mov     eax, [ebp + 12]     ; level (stored in al)
     cmp    eax, 64 ; level [0; 64]
     ja     fin     
 
@@ -65,11 +66,47 @@ br1:
     add     ebx, ecx
     movzx     ebx, byte [esi +2]  
     add     ebx, ecx            ; ebx = R+ G + B
-    
+
     mov     ecx, ebx
-    shr     ebx, 1      ; ebx = ebx/2
+
+    ; xor     ebx, ebx
+
+div_loop:
+    shr     ecx, 2
     add     ebx, ecx
-    shr     ebx, 1      ; ebx = ebx / 3
+    test    ecx, ecx
+    jnz     div_loop
+    shr     ebx, 2 ; ebx = gray
+
+blue:
+    ;new_color = ((64 - level) * original_color + level * gray) / 64
+    mov     eax, [ebp + 12]
+    movzx     ecx, byte [esi+0] ; ecx =original_color
+    mov       ah, 64
+    sub       ah, al    ; ah = 64 - level
+    mov       al, ah
+    mul       cl    ; al = (64-level) * original_color
+    ; mov     ecx, eax ; ecx =  (64-level) * original_color
+    push    eax  ; (64-level) * original_color
+    mov     eax, [ebp + 12] ; al = level
+    mul     ebx             ; eax = level * gray
+
+    pop     ecx
+    add     eax, ecx ; ((64 - level) * original_color + level * gray)
+    shr     eax, 6 ; ((64 - level) * original_color + level * gray) / 64
+green:
+    mov     eax, [ebp + 12]
+    movzx     ecx, byte [esi+1]
+
+red:
+    movzx     ebx, byte [esi +2]  
+
+br2:
+;     mov     ecx, ebx
+;     shr     ebx, 1      ; ebx = ebx/2
+; br3:
+;     add     ebx, ecx
+;     shr     ebx, 2     ; ebx = ebx / 3
 
 brrrr:
 
