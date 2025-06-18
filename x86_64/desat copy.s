@@ -43,7 +43,7 @@ calc_stride:
     
     sub     edx, ebx                ; padding = stride - width (bytes)
     mov     [ebp-4], edx            ; padding (bytes)
-    ; mov     [ebp-12], ebx           ; width (bytes)
+    mov     [ebp-12], ebx           ; width (bytes)
     
     mov     edi, [esi + 0x16]       ; height (rows remaining)
 
@@ -73,9 +73,6 @@ pixel_loop:
     add     ebx, eax                ;  sum + sum/4
     shr     ebx, 2                  ; ebx =  (sum + sum/4)/4 +-= sum/3
 
-    ; ebx = gray
-    imul    ebx, [ebp+12] ; level * gray
-
 blue:
     mov     eax, [ebp + 12]         ;  level
     ; movzx   edx, byte [esi]         ; original blue value
@@ -90,11 +87,10 @@ blue:
     ; mov     [ebp-16], eax
     mov     edx, eax 
     
-    ; mov     eax, [ebp + 12]         ; level
-    ; imul    eax, ebx                     ; eax = level*gray
+    mov     eax, [ebp + 12]         ; level
+    imul    eax, ebx                     ; eax = level*gray
     
     ; mov     edx, [ebp-16]
-    mov     eax, ebx
     add     eax, edx                ; eax = (64-level)*original + level*gray
     shr     eax, 6                  ; eax = ((64 - level) * original_color + level * gray) / 64
     mov     [esi], al            
@@ -113,11 +109,10 @@ green:
     ; mov     [ebp-16], eax
     mov     edx, eax 
     
-    ; mov     eax, [ebp + 12]         ; level
-    ; imul    eax, ebx                     ; eax = level*gray
+    mov     eax, [ebp + 12]         ; level
+    imul    eax, ebx                     ; eax = level*gray
     
     ; mov     edx, [ebp-16]
-    mov     eax, ebx
     add     eax, edx                ; eax = (64-level)*original + level*gray
     shr     eax, 6                  ; eax = ((64 - level) * original_color + level * gray) / 64
     mov     [esi +1], al    
@@ -136,11 +131,10 @@ red:
     ; mov     [ebp-16], eax
     mov     edx, eax 
     
-    ; mov     eax, [ebp + 12]         ; level
-    ; imul    eax, ebx                     ; eax = level*gray
+    mov     eax, [ebp + 12]         ; level
+    imul    eax, ebx                     ; eax = level*gray
     
     ; mov     edx, [ebp-16]
-    mov     eax, ebx
     add     eax, edx                ; eax = (64-level)*original + level*gray
     shr     eax, 6                  ; eax = ((64 - level) * original_color + level * gray) / 64
     mov     [esi +2], al    

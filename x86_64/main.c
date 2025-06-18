@@ -4,7 +4,7 @@
 #include <string.h>
 
 // External assembler function
-extern void desat(void *img, int level);
+void desat(void *img, int level);
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
