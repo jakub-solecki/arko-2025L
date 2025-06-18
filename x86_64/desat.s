@@ -12,16 +12,11 @@ desat:
     push    ebp
     mov     ebp, esp
     sub     esp, 16                 
-    
-
     push    esi
     push    ebx
     push    edi
 
-
-
     mov     esi, [ebp+8]            ;  pointer to BMP file
-
 
 check_level:
     mov     eax, [ebp + 12]         ;  level
@@ -44,7 +39,7 @@ calc_stride:
     ;  stride = (image_width_in_pixels * bytes_per_pixel + 3) & ~3
     mov     edx, ebx
     add     edx, 3
-    and     edx, -4                 ; stride (aligned to 4 bytes)
+    and     edx, -4                 ; stride (-4 = ~3)
     
     sub     edx, ebx                ; padding = stride - width (bytes)
     mov     [ebp-4], edx            ; padding (bytes)
@@ -52,13 +47,10 @@ calc_stride:
     
     mov     edi, [esi + 0x16]       ; height (rows remaining)
 
-
 to_first_pixel:
     ; moves esi to first pixel
     mov     ebx, [esi + 0xA]        ; pixel offset
     add     esi, ebx                ; ESI points to first pixel
-
-
 
 row_loop:
     mov     ecx, [ebp-8]            ;  width (pixels remaining)
@@ -67,8 +59,7 @@ pixel_loop:
     ; new_color = ((64 - level) * original_color + level * gray) / 64
     ; gray = (R + G + B) / 3
     xor     ebx, ebx                ; ebx = 0
-    
-    
+   
     movzx   eax, byte [esi+0]       ; B
     add     ebx, eax
     movzx   eax, byte [esi+1]       ; G
@@ -84,53 +75,66 @@ pixel_loop:
 
 blue:
     mov     eax, [ebp + 12]         ;  level
-    movzx   edx, byte [esi]         ; original blue value
-    mov     ah, 64
-    sub     ah, al                  ; al = 64 - level
-    mov     al, ah
-    mul     dl                      ; ax = (64-level)*original_color
-    mov     [ebp-16], eax
+    ; movzx   edx, byte [esi]         ; original blue value
+    ; mov     ah, 64
+    sub     al, 64                  ; al = level - 64
+    neg     al                      ;al = 64-level 
+    ; inc     al                      ; al = level - 64
+    ; sub     ah, al                  ; al = 64 - level
+    ; mov     al, ah
+    ; mul     dl                      ; ax = (64-level)*original_color
+    mul     byte [esi]              ; eax = (64-level)*original_color
+    ; mov     [ebp-16], eax
+    mov     edx, eax 
     
     mov     eax, [ebp + 12]         ; level
-    mul     ebx                     ; eax = level*gray
+    imul    eax, ebx                     ; eax = level*gray
     
-    mov     edx, [ebp-16]
+    ; mov     edx, [ebp-16]
     add     eax, edx                ; eax = (64-level)*original + level*gray
     shr     eax, 6                  ; eax = ((64 - level) * original_color + level * gray) / 64
     mov     [esi], al            
 
 green:
     mov     eax, [ebp + 12]         ;  level
-    movzx   edx, byte [esi + 1]     ; original green value
-    mov     ah, 64
-    sub     ah, al                  ; al = 64 - level
-    mov     al, ah
-    mul     dl                      ; ax = (64-level)*original_color
-    mov     [ebp-16], eax
-    ; movzx     edx, ax
+    ; movzx   edx, byte [esi]         ; original blue value
+    ; mov     ah, 64
+    sub     al, 64                  ; al = level - 64
+    neg     al                      ;al = 64-level - 1
+    ; inc     al                      ; al = level - 64
+    ; sub     ah, al                  ; al = 64 - level
+    ; mov     al, ah
+    ; mul     dl                      ; ax = (64-level)*original_color
+    mul     byte [esi + 1]              ; eax = (64-level)*original_color
+    ; mov     [ebp-16], eax
+    mov     edx, eax 
     
-; bbbbb:
     mov     eax, [ebp + 12]         ; level
-    mul     ebx                     ; eax = level*gray
+    imul    eax, ebx                     ; eax = level*gray
     
-    mov     edx, [ebp-16]
+    ; mov     edx, [ebp-16]
     add     eax, edx                ; eax = (64-level)*original + level*gray
     shr     eax, 6                  ; eax = ((64 - level) * original_color + level * gray) / 64
-    mov     [esi + 1], al    
+    mov     [esi +1], al    
 
 red:
     mov     eax, [ebp + 12]         ;  level
-    movzx   edx, byte [esi+2]       ; original red value
-    mov     ah, 64
-    sub     ah, al                  ; al = 64 - level
-    mov     al, ah
-    mul     dl                      ; ax = (64-level)*original_color
-    mov     [ebp-16], eax
+    ; movzx   edx, byte [esi]         ; original blue value
+    ; mov     ah, 64
+    sub     al, 64                  ; al = level - 64
+    neg     al                      ;al = 64-level - 1
+    ; inc     al                      ; al = level - 64
+    ; sub     ah, al                  ; al = 64 - level
+    ; mov     al, ah
+    ; mul     dl                      ; ax = (64-level)*original_color
+    mul     byte [esi + 2]              ; eax = (64-level)*original_color
+    ; mov     [ebp-16], eax
+    mov     edx, eax 
     
     mov     eax, [ebp + 12]         ; level
-    mul     ebx                     ; eax = level*gray
+    imul    eax, ebx                     ; eax = level*gray
     
-    mov     edx, [ebp-16]
+    ; mov     edx, [ebp-16]
     add     eax, edx                ; eax = (64-level)*original + level*gray
     shr     eax, 6                  ; eax = ((64 - level) * original_color + level * gray) / 64
     mov     [esi +2], al    
