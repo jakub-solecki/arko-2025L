@@ -1,17 +1,15 @@
 section .text
 global desat
 
-; Function: desat
-; Parameters:
+
 ;   [ebp+8]  - pointer to BMP file
 ;   [ebp+12] - desaturation level (0-64)
 desat:
-    ; Prologue
     push    ebp
     mov     ebp, esp
-    sub     esp, 16                 ; Allocate space for local variables
+    sub     esp, 16                 
     
-    ; Save registers
+
     push    esi
     push    ebx
     push    edi
@@ -20,14 +18,14 @@ desat:
     mov     esi, [ebp+8]            ; ESI = pointer to BMP file
     mov     edi, esi                ; EDI = copy of pointer
 
-    ; Validate desaturation level
+check_level:
     mov     eax, [ebp + 12]         ; EAX = level
     cmp     eax, 64                 ; Check if level > 64
     ja      fin                    
     cmp     eax, 0                  ; Check if level <= 0
     jle     fin
 
-    ; Read BMP header
+read_header:
     mov     dl, [esi + 0x1C]        ; DL = bits per pixel
     cmp     dl, 24                  ; Only support 24bpp
     jne     fin
@@ -37,7 +35,7 @@ desat:
     mov     [ebp-8], ebx            ; Store width
     lea     ebx, [ebx + ebx*2]      ; EBX = width in bytes (width * 3)
     
-    ; Calculate stride (width + padding)
+    ;  stride = (image_width_in_pixels * bytes_per_pixel + 3) & ~3
     mov     edx, ebx
     add     edx, 3
     and     edx, -4                 ; EDX = stride (aligned to 4 bytes)
@@ -49,7 +47,8 @@ desat:
     mov     ebx, [esi + 0x16]       ; EBX = height
     mov     [ebp-16], ebx           ; Store height
 
-    ; Set up pixel pointer
+to_first_pixel:
+    ; moves esi to 
     mov     ebx, [edi + 0xA]        ; EBX = pixel offset
     add     esi, ebx                ; ESI points to first pixel
 
@@ -78,7 +77,7 @@ pixel_loop:
     add     ebx, eax                ; EBX = sum + sum/4
     shr     ebx, 2                  ; EBX = (sum + sum/4)/4 ≈ sum/3
 
-    ; Process blue channel
+blue:
     mov     eax, [ebp + 12]         ; EAX = level
     movzx   edx, byte [esi]         ; EDX = original blue value
     mov     ah, 64
@@ -95,7 +94,7 @@ pixel_loop:
     shr     eax, 6                  ; Divide by 64
     mov     [esi], al               ; Store new blue value
 
-    ; Process green channel
+green:
     mov     eax, [ebp + 12]         ; EAX = level
     movzx   edx, byte [esi+1]       ; EDX = original green value
     mov     ah, 64
@@ -112,7 +111,7 @@ pixel_loop:
     shr     eax, 6                  ; Divide by 64
     mov     [esi+1], al             ; Store new green value
 
-    ; Process red channel
+red:
     mov     eax, [ebp + 12]         ; EAX = level
     movzx   edx, byte [esi+2]       ; EDX = original red value
     mov     ah, 64
@@ -134,21 +133,20 @@ pixel_loop:
     dec     ecx                     ; Decrement pixel counter
     jnz     pixel_loop              ; Continue row if more pixels
 
-    ; Handle padding at end of row
+next_row:
     mov     edx, [ebp-4]            ; EDX = padding bytes
     add     esi, edx                ; Skip padding
 
-    ; Move to next row
+
     dec     edi                     ; Decrement row counter
     jnz     row_loop                ; Continue if more rows
 
 fin:
-    ; Restore registers
+
     pop     edi
     pop     ebx
     pop     esi
-    
-    ; Epilogue
+ 
     mov     esp, ebp
     pop     ebp
     ret
