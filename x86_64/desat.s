@@ -6,8 +6,7 @@ global desat
 ;   [ebp+12] - desaturation level (0-64)
 ;   [ebp -4] - padding (bytes)
 ;   [ebp - 8] - width (pixels)
-;   [ebp - 12] - width (bytes)
-;   [ebp - 16] - temp var
+
 desat:
     push    ebp
     mov     ebp, esp
@@ -43,7 +42,6 @@ calc_stride:
     
     sub     edx, ebx                ; padding = stride - width (bytes)
     mov     [ebp-4], edx            ; padding (bytes)
-    ; mov     [ebp-12], ebx           ; width (bytes)
     
     mov     edi, [esi + 0x16]       ; height (rows remaining)
 
@@ -78,22 +76,12 @@ pixel_loop:
 
 blue:
     mov     eax, [ebp + 12]         ;  level
-    ; movzx   edx, byte [esi]         ; original blue value
-    ; mov     ah, 64
     sub     al, 64                  ; al = level - 64
     neg     al                      ;al = 64-level 
-    ; inc     al                      ; al = level - 64
-    ; sub     ah, al                  ; al = 64 - level
-    ; mov     al, ah
-    ; mul     dl                      ; ax = (64-level)*original_color
     mul     byte [esi]              ; eax = (64-level)*original_color
-    ; mov     [ebp-16], eax
+
     mov     edx, eax 
-    
-    ; mov     eax, [ebp + 12]         ; level
-    ; imul    eax, ebx                     ; eax = level*gray
-    
-    ; mov     edx, [ebp-16]
+
     mov     eax, ebx
     add     eax, edx                ; eax = (64-level)*original + level*gray
     shr     eax, 6                  ; eax = ((64 - level) * original_color + level * gray) / 64
@@ -101,22 +89,12 @@ blue:
 
 green:
     mov     eax, [ebp + 12]         ;  level
-    ; movzx   edx, byte [esi]         ; original blue value
-    ; mov     ah, 64
     sub     al, 64                  ; al = level - 64
     neg     al                      ;al = 64-level - 1
-    ; inc     al                      ; al = level - 64
-    ; sub     ah, al                  ; al = 64 - level
-    ; mov     al, ah
-    ; mul     dl                      ; ax = (64-level)*original_color
+
     mul     byte [esi + 1]              ; eax = (64-level)*original_color
-    ; mov     [ebp-16], eax
     mov     edx, eax 
     
-    ; mov     eax, [ebp + 12]         ; level
-    ; imul    eax, ebx                     ; eax = level*gray
-    
-    ; mov     edx, [ebp-16]
     mov     eax, ebx
     add     eax, edx                ; eax = (64-level)*original + level*gray
     shr     eax, 6                  ; eax = ((64 - level) * original_color + level * gray) / 64
@@ -124,22 +102,11 @@ green:
 
 red:
     mov     eax, [ebp + 12]         ;  level
-    ; movzx   edx, byte [esi]         ; original blue value
-    ; mov     ah, 64
     sub     al, 64                  ; al = level - 64
     neg     al                      ;al = 64-level - 1
-    ; inc     al                      ; al = level - 64
-    ; sub     ah, al                  ; al = 64 - level
-    ; mov     al, ah
-    ; mul     dl                      ; ax = (64-level)*original_color
     mul     byte [esi + 2]              ; eax = (64-level)*original_color
-    ; mov     [ebp-16], eax
     mov     edx, eax 
-    
-    ; mov     eax, [ebp + 12]         ; level
-    ; imul    eax, ebx                     ; eax = level*gray
-    
-    ; mov     edx, [ebp-16]
+
     mov     eax, ebx
     add     eax, edx                ; eax = (64-level)*original + level*gray
     shr     eax, 6                  ; eax = ((64 - level) * original_color + level * gray) / 64
@@ -153,7 +120,6 @@ next_pixel:
 next_row:
     mov     edx, [ebp-4]            ;padding (bytes)
     add     esi, edx                ; Skip padding
-
 
     dec     edi                     ; rows = rows - 1
     jnz     row_loop                ; if rows > 0, print next row
